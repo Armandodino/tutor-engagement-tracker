@@ -1,0 +1,161 @@
+// Prisma schema - Tutor Engagement Tracker
+// Objectif: Suivre et mesurer l'engagement des tuteurs
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  RESPONSABLE
+  TUTEUR
+}
+
+enum SessionStatus {
+  PLANIFIEE
+  EN_COURS
+  REALISEE
+  ANNULEE
+  ABSENTE
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  RETARD
+  NON_MARQUE
+}
+
+enum ReportStatus {
+  BROUILLON
+  SOUMIS
+  VALIDE
+  REFUSE
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  role      Role     @default(TUTEUR)
+  isActive  Boolean  @default(true)
+  lastLoginAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tutor      Tutor?
+  activityLogs ActivityLog[]
+}
+
+model Tutor {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id])
+  phone       String?
+  matieres    String?
+  centre      String?
+  actif       Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sessions    Session[]
+  engagementScores EngagementScore[]
+}
+
+model Session {
+  id          String        @id @default(cuid())
+  tutorId     String
+  tutor       Tutor         @relation(fields: [tutorId], references: [id])
+  titre       String
+  matiere     String?
+  classe      String?
+  salle       String?
+  enLigne     Boolean       @default(false)
+  lieu        String?
+  dateDebut   DateTime
+  dateFin     DateTime
+  status      SessionStatus @default(PLANIFIEE)
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  attendance  Attendance?
+  sessionReport SessionReport?
+}
+
+model Attendance {
+  id          String           @id @default(cuid())
+  sessionId   String           @unique
+  session     Session          @relation(fields: [sessionId], references: [id])
+  markedById  String?
+  status      AttendanceStatus @default(NON_MARQUE)
+  markedAt    DateTime?
+  arriveAt    DateTime?
+  motifAbsence String?
+  commentaire String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([status])
+  @@index([markedAt])
+}
+
+model SessionReport {
+  id          String       @id @default(cuid())
+  sessionId   String       @unique
+  session     Session      @relation(fields: [sessionId], references: [id])
+  contenu     String       @default("")
+  objectifs   String?
+  difficultes String?
+  travauxARealiser String?
+  status      ReportStatus @default(BROUILLON)
+  soumisAt    DateTime?
+  valideAt    DateTime?
+  valideParId String?
+  commentaireValidation String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([status])
+  @@index([soumisAt])
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  details   String?
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model EngagementScore {
+  id              String   @id @default(cuid())
+  tutorId         String
+  tutor           Tutor    @relation(fields: [tutorId], references: [id])
+  periodeDebut    DateTime
+  periodeFin      DateTime
+  tauxRealisation Float    @default(0)
+  ponctualiteMarquage Float @default(0)
+  compteRendus    Float    @default(0)
+  regularite      Float    @default(0)
+  activite        Float    @default(0)
+  scoreGlobal     Float    @default(0)
+  statut          String   @default("MOYEN")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([tutorId, periodeDebut, periodeFin])
+}
